@@ -1,169 +1,23 @@
-# build-deploy.yml - reusable workflow called by each Coolify app repo.
+# build-deploy.yml - OBSOLETE: kept for reference only.
 #
-# Contract (calling repo's deploy.yml):
-#   jobs:
-#     deploy:
-#       uses: gibtang/infra/.github/workflows/build-deploy.yml@v1
-#       with:
-#         image: ghcr.io/gibtang/<app>
-#         app_uuid: <coolify-uuid>
-#         dockerfile: Dockerfile                          # optional
-#         context: .                                      # optional
-#         build_args_json: |                              # optional: JSON object
-#           {                                              #   of NAME -> value
-#             "NEXT_PUBLIC_FOO": "${{ secrets.NEXT_PUBLIC_FOO }}",
-#             "MONGODB_URI": "${{ secrets.MONGODB_URI }}"
-#           }
-#       secrets: inherit
+# This reusable-workflow approach was abandoned during Phase 4 because GitHub
+# Actions forbids both `env:` on `uses:` jobs AND `${{ secrets.X }}` in `with:`
+# inputs. There is no way to pass secret-derived build-args to a reusable
+# workflow.
 #
-# Design note: we pass build-args as a JSON string (not env: on the uses: job,
-# which GitHub forbids, and not via secrets.NAME indirection, which Actions
-# doesn't support). The caller binds each value via ${{ secrets.X }} when
-# constructing the JSON; the workflow parses and applies them.
-name: build-deploy
-
+# The working pattern is: each app's deploy.yml does the build inline and
+# calls infra/scripts/* for the deploy + notify steps. See
+# docs/adding-a-new-app.md for the current template.
+#
+# This file is intentionally not referenced by any caller. Do not delete —
+# it documents the dead-end for future maintainers.
+name: build-deploy-DEPRECATED
 on:
   workflow_call:
-    inputs:
-      image:
-        type: string
-        required: true
-        description: 'Full image ref, e.g. ghcr.io/gibtang/check-mcc'
-      app_uuid:
-        type: string
-        required: true
-        description: 'Coolify application UUID to redeploy'
-      build_args_json:
-        type: string
-        required: false
-        default: '{}'
-        description: 'JSON object of build-arg NAME -> value (caller binds secrets)'
-      dockerfile:
-        type: string
-        required: false
-        default: 'Dockerfile'
-      context:
-        type: string
-        required: false
-        default: '.'
-    secrets:
-      GHCR_TOKEN:
-        required: true
-      COOLIFY_API_TOKEN:
-        required: true
-      TELEGRAM_TOKEN:
-        required: false
-      TELEGRAM_CHAT:
-        required: false
-
-permissions:
-  contents: read
-
-env:
-  COOLIFY_API_URL: https://coolify-api.feedcode.dev
-
+    inputs: {}
+    secrets: {}
 jobs:
-  build-deploy:
+  deprecated:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    concurrency:
-      group: deploy-${{ github.ref }}
-      cancel-in-progress: true
     steps:
-      - name: Checkout app repo
-        uses: actions/checkout@v4
-
-      - name: Checkout infra repo (for scripts)
-        uses: actions/checkout@v4
-        with:
-          repository: gibtang/infra
-          path: .infra
-
-      - name: Notify start (Telegram)
-        if: always()
-        env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
-          BUILD_ARGS_JSON: ${{ inputs.build_args_json }}
-        run: |
-          msg="🔨 <b>${{ inputs.image }}</b> #${{ github.run_number }} — build started"
-          bash .infra/scripts/telegram-notify.sh "$msg" || true
-
-      - name: Resolve build-args to env file
-        env:
-          BUILD_ARGS_JSON: ${{ inputs.build_args_json }}
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/buildenv
-          python3 -c '
-          import json, os
-          data = json.loads(os.environ["BUILD_ARGS_JSON"] or "{}")
-          with open("/tmp/buildenv/args.list", "w") as f:
-              for k, v in data.items():
-                  if v:
-                      f.write(f"{k}={v}\n")
-          '
-          count=$(wc -l < /tmp/buildenv/args.list 2>/dev/null || echo 0)
-          echo "Resolved $count build-arg(s)."
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Build & tag
-        run: |
-          set -euo pipefail
-          args=()
-          if [ -f /tmp/buildenv/args.list ]; then
-            while IFS='=' read -r key val; do
-              args+=(--build-arg "${key}=${val}")
-            done < /tmp/buildenv/args.list
-          fi
-          docker build "${args[@]}" \
-            -f "${{ inputs.dockerfile }}" \
-            -t "${{ inputs.image }}:latest" \
-            -t "${{ inputs.image }}:github-${{ github.run_number }}" \
-            "${{ inputs.context }}"
-
-      - name: Push tags
-        run: |
-          docker push "${{ inputs.image }}:latest"
-          docker push "${{ inputs.image }}:github-${{ github.run_number }}"
-
-      - name: Deploy via Coolify
-        env:
-          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
-        run: |
-          bash .infra/scripts/coolify-deploy.sh "${{ inputs.app_uuid }}"
-
-      - name: Notify success
-        if: success()
-        env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
-        run: |
-          msg="✅ <b>${{ inputs.image }}</b> #${{ github.run_number }} — deploy SUCCESS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          bash .infra/scripts/telegram-notify.sh "$msg" || true
-
-      - name: Notify failure
-        if: failure()
-        env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
-        run: |
-          msg="❌ <b>${{ inputs.image }}</b> #${{ github.run_number }} — build FAILED: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          bash .infra/scripts/telegram-notify.sh "$msg" || true
-
-      - name: Notify abort
-        # GitHub Actions does not run if: failure() or if: success() on cancellation.
-        # cancelled() catches the case where cancel-in-progress: true superseded this run.
-        if: cancelled()
-        env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
-        run: |
-          msg="⏹ <b>${{ inputs.image }}</b> #${{ github.run_number }} — build ABORTED"
-          bash .infra/scripts/telegram-notify.sh "$msg" || true
+      - run: echo "This workflow is deprecated. See docs/adding-a-new-app.md."
