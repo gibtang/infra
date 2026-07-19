@@ -13,7 +13,7 @@
 # Never fails the pipeline - Telegram is best-effort notification only.
 set -uo pipefail
 
-msg="$1"
+msg="${1:-}"
 agent_chat="-1003669787601"
 
 if [ -z "${TELEGRAM_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT:-}" ]; then

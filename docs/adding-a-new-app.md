@@ -77,16 +77,19 @@ jobs:
     with:
       image: ghcr.io/gibtang/my-app
       app_uuid: <uuid>
-      build_args: 'NEXT_PUBLIC_FOO,NEXT_PUBLIC_BAR'
+      build_args_json: |
+        {
+          "NEXT_PUBLIC_FOO": "${{ secrets.NEXT_PUBLIC_FOO }}",
+          "MONGODB_URI": "${{ secrets.MONGODB_URI }}"
+        }
     secrets: inherit
-    env:
-      NEXT_PUBLIC_FOO: ${{ secrets.NEXT_PUBLIC_FOO }}
-      NEXT_PUBLIC_BAR: ${{ secrets.NEXT_PUBLIC_BAR }}
 ```
 
-The `env:` block must list each name in `build_args:`. GitHub Actions forbids
-indirect secret access (`${{ secrets[NAME] }}`), so each must be bound
-explicitly.
+The `build_args_json:` is a JSON object — list each build-arg you want to
+pass, with the value bound to its caller-side secret. Empty/missing values
+are silently skipped by the workflow. GitHub Actions forbids `env:` on a
+`uses:` job and forbids indirect `${{ secrets[NAME] }}` access, so JSON is
+the cleanest channel for variable build-arg sets.
 
 ### 5. Trigger a test deploy
 

@@ -145,13 +145,15 @@ apps:
 multi_apps:
   - name: iguana_docs
     repo: gibtang/iguana_docs
+    # NOTE: extract-build-args.sh only handles single-image apps. Recover the
+    # frontend's NEXT_PUBLIC_* values manually (see plan Task 14 Step 1).
     images:
       - tag: frontend
         image: ghcr.io/gibtang/iguana_docs
         dockerfile: frontend/Dockerfile.prod
         context: ./frontend
         coolify_uuid: e9wacoh9wxjvxvf78ic57p4p
-        build_args: []      # populated by extract-build-args.sh
+        build_args: []      # recover manually per plan Task 14
       - tag: backend
         image: ghcr.io/gibtang/iguana_docs
         dockerfile: Dockerfile

@@ -52,8 +52,8 @@ for e in envs:
 # Greps $CONTAINER_STRINGS_FILE (set by fetch_container_strings) for PATTERN.
 resolve_value_from_container() {
   local pattern="$1"
-  [ -z "${CONTAINER_STRINGS_FILE:-}" ] && { true; return; }
-  [ -f "$CONTAINER_STRINGS_FILE" ] || { true; return; }
+  [ -z "${CONTAINER_STRINGS_FILE:-}" ] && return
+  [ -f "$CONTAINER_STRINGS_FILE" ] || return
   grep -aoE "$pattern" "$CONTAINER_STRINGS_FILE" 2>/dev/null | head -1 || true
 }
 
@@ -166,8 +166,13 @@ main() {
     value="$(resolve_one "$name" || true)"
     if [ -n "$value" ]; then
       if [ "${DRY_RUN:-0}" = "1" ]; then
-        # Print key + masked value for audit
-        local masked="${value:0:8}...${value: -4}"
+        # Print key + masked value for audit. For short values (<12 chars),
+        # mask fully to avoid leaking most of the value.
+        if [ "${#value}" -lt 12 ]; then
+          masked="(short - hidden)"
+        else
+          masked="${value:0:8}...${value: -4}"
+        fi
         echo "  $name = $masked  (dry-run, not written)" >&2
       else
         printf '%s' "$value" | gh secret set "$name" -R "$repo" 2>&1 | sed "s/^/    gh: /" >&2
