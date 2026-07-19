@@ -1,0 +1,6 @@
+# Local scratch / outputs from extract-build-args.sh (values are sensitive)
+.secrets-cache/
+*.env.local
+
+# OS
+.DS_Store
