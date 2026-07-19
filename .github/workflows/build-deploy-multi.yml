@@ -1,0 +1,120 @@
+# build-deploy-multi.yml - variant for monorepos that produce multiple images.
+# Currently used by iguana_docs (frontend + backend).
+#
+# Caller contract:
+#   jobs:
+#     deploy:
+#       uses: gibtang/infra/.github/workflows/build-deploy-multi.yml@v1
+#       with:
+#         images: |-
+#           [
+#             {"tag":"frontend","image":"ghcr.io/gibtang/iguana_docs","dockerfile":"frontend/Dockerfile.prod","context":"./frontend","app_uuid":"...","build_args":"NEXT_PUBLIC_FOO"},
+#             {"tag":"backend","image":"ghcr.io/gibtang/iguana_docs","dockerfile":"Dockerfile","context":".","app_uuid":"...","build_args":""}
+#           ]
+#       secrets: inherit
+#       env:
+#         # For each name in any image's build_args, bind caller's secret:
+#         NEXT_PUBLIC_FOO: ${{ secrets.NEXT_PUBLIC_FOO }}
+name: build-deploy-multi
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        type: string
+        required: true
+        description: 'JSON array of image objects'
+    secrets:
+      GHCR_TOKEN:
+        required: true
+      COOLIFY_API_TOKEN:
+        required: true
+      TELEGRAM_TOKEN:
+        required: false
+      TELEGRAM_CHAT:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  COOLIFY_API_URL: https://coolify-api.feedcode.dev
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: deploy-multi-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Checkout infra
+        uses: actions/checkout@v4
+        with:
+          repository: gibtang/infra
+          path: .infra
+
+      - name: Notify start
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+        run: |
+          msg="🔨 <b>${{ github.repository }}</b> #${{ github.run_number }} — multi-image build started"
+          bash .infra/scripts/telegram-notify.sh "$msg" || true
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build, push, and deploy each image
+        env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          IMAGES_JSON: ${{ inputs.images }}
+        run: |
+          set -euo pipefail
+          echo "$IMAGES_JSON" | python3 -c '
+          import json, sys, subprocess, os
+          images = json.loads(sys.stdin.read())
+          for img in images:
+              tag = img["tag"]; image = img["image"]; df = img["dockerfile"]
+              ctx = img["context"]; uuid = img["app_uuid"]; args_csv = img.get("build_args", "")
+              print(f"=== Building {image}:{tag} ===")
+              cmd = ["docker", "build", "-f", df, "-t", f"{image}:{tag}",
+                     "-t", f"{image}:{tag}-github-{os.environ[\"GITHUB_RUN_NUMBER\"]}", ctx]
+              for name in args_csv.split(","):
+                  name = name.strip()
+                  if not name:
+                      continue
+                  val = os.environ.get(name, "")
+                  if val:
+                      cmd += ["--build-arg", f"{name}={val}"]
+              subprocess.run(cmd, check=True)
+              subprocess.run(["docker", "push", f"{image}:{tag}"], check=True)
+              subprocess.run(["docker", "push", f"{image}:{tag}-github-{os.environ[\"GITHUB_RUN_NUMBER\"]}"], check=True)
+              print(f"=== Deploying {uuid} ===")
+              subprocess.run(["bash", ".infra/scripts/coolify-deploy.sh", uuid], check=True)
+          '
+
+      - name: Notify success
+        if: success()
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+        run: |
+          msg="✅ <b>${{ github.repository }}</b> #${{ github.run_number }} — multi-image deploy SUCCESS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          bash .infra/scripts/telegram-notify.sh "$msg" || true
+
+      - name: Notify failure
+        if: failure()
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+        run: |
+          msg="❌ <b>${{ github.repository }}</b> #${{ github.run_number }} — multi-image build FAILED: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          bash .infra/scripts/telegram-notify.sh "$msg" || true
