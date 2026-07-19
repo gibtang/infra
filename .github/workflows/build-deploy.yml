@@ -1,17 +1,39 @@
+# build-deploy.yml - reusable workflow called by each Coolify app repo.
+#
+# Contract (calling repo's deploy.yml):
+#   jobs:
+#     deploy:
+#       uses: gibtang/infra/.github/workflows/build-deploy.yml@v1
+#       with:
+#         image: ghcr.io/gibtang/<app>
+#         app_uuid: <coolify-uuid>
+#         build_args: 'NEXT_PUBLIC_FOO,NEXT_PUBLIC_BAR'  # optional
+#         dockerfile: Dockerfile                          # optional
+#         context: .                                      # optional
+#       secrets: inherit
+#       env:
+#         # For each name in build_args, bind the caller's secret to an env var
+#         # of the same name. The reusable workflow reads values via ${!name}.
+#         NEXT_PUBLIC_FOO: ${{ secrets.NEXT_PUBLIC_FOO }}
+#         NEXT_PUBLIC_BAR: ${{ secrets.NEXT_PUBLIC_BAR }}
 name: build-deploy
+
 on:
   workflow_call:
     inputs:
       image:
         type: string
         required: true
+        description: 'Full image ref, e.g. ghcr.io/gibtang/check-mcc'
       app_uuid:
         type: string
         required: true
+        description: 'Coolify application UUID to redeploy'
       build_args:
         type: string
         required: false
         default: ''
+        description: 'Comma-separated list of build-arg names (resolved from caller env)'
       dockerfile:
         type: string
         required: false
@@ -25,9 +47,110 @@ on:
         required: true
       COOLIFY_API_TOKEN:
         required: true
+      TELEGRAM_TOKEN:
+        required: false
+      TELEGRAM_CHAT:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  COOLIFY_API_URL: https://coolify-api.feedcode.dev
+
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: true
     steps:
-      - name: Test
-        run: echo "hello"
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Checkout infra repo (for scripts)
+        uses: actions/checkout@v4
+        with:
+          repository: gibtang/infra
+          path: .infra
+
+      - name: Notify start (Telegram)
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+        run: |
+          msg="🔨 <b>${{ inputs.image }}</b> #${{ github.run_number }} — build started"
+          bash .infra/scripts/telegram-notify.sh "$msg" || true
+
+      - name: Resolve build-args to env file
+        # For each name in inputs.build_args, write NAME=$NAME to /tmp/buildenv/args.list.
+        # $NAME is resolved from the caller's env: block (bound to the caller's secret
+        # of the same name). Empty values are skipped (matches Jenkins empty-BUILDENV).
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/buildenv
+          IFS=',' read -ra NAMES <<< "${{ inputs.build_args }}"
+          for name in "${NAMES[@]}"; do
+            [ -z "$name" ] && continue
+            value="${!name:-}"
+            if [ -n "$value" ]; then
+              printf '%s=%s\n' "$name" "$value" >> /tmp/buildenv/args.list
+            fi
+          done
+          echo "Resolved $(wc -l < /tmp/buildenv/args.list 2>/dev/null || echo 0) build-arg(s)."
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build & tag
+        id: build
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -f /tmp/buildenv/args.list ]; then
+            while IFS='=' read -r key val; do
+              args+=(--build-arg "${key}=${val}")
+            done < /tmp/buildenv/args.list
+          fi
+          docker build "${args[@]}" \
+            -f "${{ inputs.dockerfile }}" \
+            -t "${{ inputs.image }}:latest" \
+            -t "${{ inputs.image }}:github-${{ github.run_number }}" \
+            "${{ inputs.context }}"
+
+      - name: Push tags
+        run: |
+          docker push "${{ inputs.image }}:latest"
+          docker push "${{ inputs.image }}:github-${{ github.run_number }}"
+
+      - name: Deploy via Coolify
+        env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          bash .infra/scripts/coolify-deploy.sh "${{ inputs.app_uuid }}"
+
+      - name: Notify success
+        if: success()
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+        run: |
+          msg="✅ <b>${{ inputs.image }}</b> #${{ github.run_number }} — deploy SUCCESS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          bash .infra/scripts/telegram-notify.sh "$msg" || true
+
+      - name: Notify failure
+        if: failure()
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+        run: |
+          msg="❌ <b>${{ inputs.image }}</b> #${{ github.run_number }} — build FAILED: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          bash .infra/scripts/telegram-notify.sh "$msg" || true
