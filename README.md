@@ -3,6 +3,12 @@
 Reusable GitHub Actions workflows and shell scripts that build, push, and
 deploy the Coolify app fleet. Replaces the dead Jenkins host.
 
+> **Visibility:** This repo is intentionally **public**. GitHub requires
+> reusable workflows to be accessible to callers; for a user-owned account
+> (not an org) that means public. No secrets live here — only CI orchestration
+> and references to secret names. All actual values are stored as repo-level
+> secrets on each app repo.
+
 ## What lives here
 
 - `.github/workflows/build-deploy.yml` — reusable workflow called by each app
