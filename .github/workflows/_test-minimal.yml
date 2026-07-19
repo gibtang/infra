@@ -1,0 +1,12 @@
+name: test-minimal
+on:
+  workflow_call:
+    inputs:
+      msg:
+        type: string
+        required: true
+jobs:
+  hi:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ inputs.msg }}"
