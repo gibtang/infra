@@ -1,0 +1,160 @@
+# Fleet inventory for gibtang/infra CI.
+# This is the canonical source of truth for which apps build via GH Actions,
+# their Coolify UUIDs, image names, build contexts, and explicit build-args.
+#
+# Format:
+#   apps:                  # single-image apps
+#     - name:              # short identifier
+#       repo:              # gibtang/<repo>
+#       image:             # full image ref
+#       coolify_uuid:      # Coolify application UUID (POST /api/v1/deploy)
+#       dockerfile:        # path to Dockerfile (default: Dockerfile)
+#       context:           # build context dir (default: .)
+#       build_args:        # explicit list of secret/env names to pass as --build-arg
+#   multi_apps:            # multi-image monorepos (iguana_docs)
+#     - name:
+#       repo:
+#       images:
+#         - tag:           # tag suffix appended to image ref (e.g. "frontend")
+#           dockerfile:
+#           context:
+#           coolify_uuid:
+#           build_args: []
+
+apps:
+  - name: a2z-soft-co
+    repo: gibtang/a2z-soft-co
+    image: ghcr.io/gibtang/a2z-soft-co
+    coolify_uuid: u70wwm708ti9vqbv0h612su4
+    build_args: []          # populated by extract-build-args.sh (was dynamic in Jenkins)
+
+  - name: agent-utils
+    repo: gibtang/agent-utils
+    image: ghcr.io/gibtang/agent-utils
+    coolify_uuid: yz21u33pxwy51638mq4fiytd
+    build_args: []          # populated by extract-build-args.sh (was explicit in Jenkins)
+
+  - name: ai-downdetector
+    repo: gibtang/ai-downdetector
+    image: ghcr.io/gibtang/ai-downdetector
+    coolify_uuid: cb2xw1cex9wlduxakz86a0qt
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: anban
+    repo: gibtang/anban
+    image: ghcr.io/gibtang/anban
+    coolify_uuid: yxvqbs5rknprqqtc5bxzeok1
+    build_args: []          # no build-args (confirmed in Jenkinsfile)
+
+  - name: check-mcc
+    repo: gibtang/check-mcc
+    image: ghcr.io/gibtang/check-mcc
+    coolify_uuid: i5z2479us9tspnkacs8gnln0
+    build_args:
+      - NEXT_PUBLIC_FIREBASE_API_KEY
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID
+      - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+      - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+      - NEXT_PUBLIC_FIREBASE_APP_ID
+      - NEXT_PUBLIC_GA_MEASUREMENT_ID
+      - NEXT_PUBLIC_POSTHOG_KEY
+      - NEXT_PUBLIC_POSTHOG_HOST
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY
+      - MONGODB_URI
+
+  - name: check-mcc-us
+    repo: gibtang/check-mcc-us
+    image: ghcr.io/gibtang/check-mcc-us
+    coolify_uuid: a2jlkxmngcz34jjk0l9bxn65
+    build_args:
+      - NEXT_PUBLIC_GA_MEASUREMENT_ID
+      - NEXT_PUBLIC_POSTHOG_KEY
+      - NEXT_PUBLIC_POSTHOG_HOST
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY
+      - MONGODB_URI
+
+  - name: claudeornot
+    repo: gibtang/claudeornot
+    image: ghcr.io/gibtang/claudeornot
+    coolify_uuid: wcvjb8dy1sdgv9dhgaz7o9e7
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: coupon-squirrel
+    repo: gibtang/coupon-squirrel-web
+    image: ghcr.io/gibtang/coupon-squirrel
+    coolify_uuid: bt5brg9jwoldzoxorkerpge4
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: feedcode-dev
+    repo: gibtang/feedcode.dev
+    image: ghcr.io/gibtang/feedcode.dev
+    coolify_uuid: dd8xqgcwok3pkgg505wqwvcb
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: geoduck
+    repo: gibtang/geoduck
+    image: ghcr.io/gibtang/geoduck
+    coolify_uuid: z36ks2yofl22ckrplvjw1kf8
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: gunpla-api
+    repo: gibtang/gunpla
+    image: ghcr.io/gibtang/gunpla-api
+    coolify_uuid: u8v4jfx9f5mzmii66h4cqybh
+    dockerfile: gunpla-api/Dockerfile
+    context: gunpla-api
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: hotel-like
+    repo: gibtang/hotel-like
+    image: ghcr.io/gibtang/hotel-like
+    coolify_uuid: x1a0tmch4nxbhuildh2bujlr
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: octosig
+    repo: gibtang/octosig
+    image: ghcr.io/gibtang/octosig
+    coolify_uuid: z7ls8zfdyg0349zigoh973ox
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: prs-pls
+    repo: gibtang/prs-pls
+    image: ghcr.io/gibtang/prs-pls
+    coolify_uuid: fzfkxba7p5zb2rre6i8emj0e
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: pste-ai
+    repo: gibtang/pste-ai
+    image: ghcr.io/gibtang/pste-ai
+    coolify_uuid: m1n7c1lzfz9uzui2zim3qx4a
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: simple-blog
+    repo: gibtang/simple-blog
+    image: ghcr.io/gibtang/simple-blog
+    coolify_uuid: o445c8lwuouiy9kf6yddiz47
+    build_args: []          # populated by extract-build-args.sh
+
+  - name: stork-ticker
+    repo: gibtang/stork-ticker
+    image: ghcr.io/gibtang/stork-ticker
+    coolify_uuid: xck8dlwv3g2239p5kfcon0cz
+    build_args: []          # populated by extract-build-args.sh
+
+multi_apps:
+  - name: iguana_docs
+    repo: gibtang/iguana_docs
+    images:
+      - tag: frontend
+        image: ghcr.io/gibtang/iguana_docs
+        dockerfile: frontend/Dockerfile.prod
+        context: ./frontend
+        coolify_uuid: e9wacoh9wxjvxvf78ic57p4p
+        build_args: []      # populated by extract-build-args.sh
+      - tag: backend
+        image: ghcr.io/gibtang/iguana_docs
+        dockerfile: Dockerfile
+        context: .
+        coolify_uuid: l30pn5q406cenqwe3s0bzaqq
+        build_args: []      # no build-args (confirmed in Jenkinsfile)
