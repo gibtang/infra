@@ -1,0 +1,86 @@
+services:
+  rails:
+    image: chatwoot/chatwoot:v4.16.2
+    restart: always
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    environment:
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - RAILS_ENV=production
+      - NODE_ENV=production
+      - INSTALLATION_ENV=api
+      - RAILS_LOG_TO_STDOUT=true
+      - FRONTEND_URL=${FRONTEND_URL}
+      - DEFAULT_LOCALE=en
+      - ENABLE_ACCOUNT_SIGNUP=false
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DATABASE=chatwoot
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - rails-storage:/app/storage
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 1200m
+
+  sidekiq:
+    image: chatwoot/chatwoot:v4.16.2
+    restart: always
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    environment:
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - RAILS_ENV=production
+      - NODE_ENV=production
+      - INSTALLATION_ENV=api
+      - RAILS_LOG_TO_STDOUT=true
+      - FRONTEND_URL=${FRONTEND_URL}
+      - DEFAULT_LOCALE=en
+      - ENABLE_ACCOUNT_SIGNUP=false
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DATABASE=chatwoot
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 800m
+
+  postgres:
+    image: postgres:13-alpine
+    restart: always
+    environment:
+      - POSTGRES_DB=chatwoot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 500m
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '250mb', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 300m
+
+volumes:
+  rails-storage:
+  postgres-data:
+  redis-data:
