@@ -106,11 +106,11 @@ apps:
   - NEXT_PUBLIC_POSTHOG_HOST
   - NEXT_PUBLIC_POSTHOG_KEY
 - name: gunpla-api
-  repo: gibtang/gunpla
-  image: ghcr.io/gibtang/gunpla-api
+  repo: gibtang/g-hangar
+  image: ghcr.io/gibtang/g-hangar-api
   coolify_uuid: u8v4jfx9f5mzmii66h4cqybh
-  dockerfile: gunpla-api/Dockerfile
-  context: gunpla-api
+  dockerfile: g-hangar-api/Dockerfile
+  context: g-hangar-api
   build_args:
   - NEXT_PUBLIC_APP_URL
   - NEXT_PUBLIC_BASE_URL
@@ -224,3 +224,9 @@ multi_apps:
     context: .
     coolify_uuid: l30pn5q406cenqwe3s0bzaqq
     build_args: []
+  - name: chatwoot
+    repo: chatwoot/chatwoot  # upstream image, not our repo
+    image: chatwoot/chatwoot:v4.16.2
+    coolify_uuid: nn29kgzras92o1kmauxt083m
+    build_args: []
+    note: docker-compose service (rails+sidekiq+postgres+redis), support.feedcode.dev, manual upgrades via Coolify API/UI

@@ -56,7 +56,7 @@ services:
           memory: 800m
 
   postgres:
-    image: postgres:13-alpine
+    image: pgvector/pgvector:pg13
     restart: always
     environment:
       - POSTGRES_DB=chatwoot
