@@ -6,7 +6,7 @@ apps:
   build_args:
   - NEXT_PUBLIC_APP_URL
 - name: admin
-  repo: gibtang/admin
+  repo: gibtang/A2Zsoft-admin
   image: ghcr.io/gibtang/admin
   coolify_uuid: 2eec10980f8d8ecea52c989e
   build_args: []
