@@ -117,18 +117,7 @@ $(printf '%b' "$build_cmd")
       - name: Deploy via Coolify
         env:
           COOLIFY_API_TOKEN: \${{ secrets.COOLIFY_API_TOKEN }}
-          REDIS_URL: \${{ secrets.REDIS_URL }}
-          DEPLOY_SHA: \${{ github.sha }}
-          DEPLOY_REPO: \${{ github.repository }}
-          DEPLOY_RUN_URL: \${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }}
-          DEPLOY_AUTHOR: \${{ github.actor }}
         run: |
-          set -euo pipefail
-          command -v redis-cli >/dev/null 2>&1 || {
-            sudo apt-get update -qq && sudo apt-get install -y -qq redis-tools >/dev/null
-          }
-          export DEPLOY_COMMIT_MESSAGE="\$(git log -1 --pretty=%s \"\${{ github.sha }}\")"
-          export DEPLOY_COMMIT_URL="\${{ github.server_url }}/\${{ github.repository }}/commit/\${{ github.sha }}"
           bash .infra/scripts/coolify-deploy.sh "${uuid}"
 
       - name: Notify success
