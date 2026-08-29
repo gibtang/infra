@@ -11,7 +11,7 @@
 #   {{IMAGE}}        e.g. ghcr.io/gibtang/check-mcc
 #   {{APP_UUID}}     Coolify application UUID
 #   {{DOCKERFILE}}   e.g. Dockerfile (default)
-#   {{CONTEXT}}      e.g. . (default) or gunpla-api
+#   {{CONTEXT}}      e.g. . (default) or g-hangar-api
 #   {{BUILD_ARGS}}   blank, OR a block of:
 #                      --build-arg NAME="$NAME" \
 #                    one per line, with matching env: bindings below
@@ -80,7 +80,22 @@ jobs:
       - name: Deploy via Coolify
         env:
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          # Exact commit attribution for deployments.feedcode.dev:
+          # coolify-deploy.sh records {sha,message,url} keyed by the
+          # deployment_uuid Coolify returns. REDIS_URL is the shared Redis
+          # (org-level secret). Skip-safe if unset / redis-cli missing.
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_REPO: ${{ github.repository }}
+          DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOY_AUTHOR: ${{ github.actor }}
         run: |
+          set -euo pipefail
+          command -v redis-cli >/dev/null 2>&1 || {
+            sudo apt-get update -qq && sudo apt-get install -y -qq redis-tools >/dev/null
+          }
+          export DEPLOY_COMMIT_MESSAGE="$(git log -1 --pretty=%s "${{ github.sha }}")"
+          export DEPLOY_COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           bash .infra/scripts/coolify-deploy.sh "{{APP_UUID}}"
 
       - name: Notify success

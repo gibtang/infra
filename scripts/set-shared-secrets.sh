@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# set-shared-secrets.sh - set the 4 shared secrets on every CI'd repo.
+# set-shared-secrets.sh - set the 5 shared secrets on every CI'd repo.
 #
 # Usage: set-shared-secrets.sh [<repo>...]   # defaults to all in apps.yaml
 #
@@ -8,6 +8,7 @@
 #   COOLIFY_API_TOKEN
 #   TELEGRAM_TOKEN
 #   TELEGRAM_CHAT
+#   REDIS_URL          redis://:<password>@66.70.190.82:6379 (deploy-step metadata store)
 #
 # Validates each is set before doing any work.
 set -euo pipefail
@@ -15,7 +16,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPS_YAML="${HERE}/../apps.yaml"
 
-for required in GHCR_TOKEN COOLIFY_API_TOKEN TELEGRAM_TOKEN TELEGRAM_CHAT; do
+for required in GHCR_TOKEN COOLIFY_API_TOKEN TELEGRAM_TOKEN TELEGRAM_CHAT REDIS_URL; do
   if [ -z "${!required:-}" ]; then
     echo "ERROR: env var $required is not set" >&2
     exit 2
@@ -31,7 +32,7 @@ fi
 
 for repo in "${repos[@]}"; do
   echo "→ $repo"
-  for name in GHCR_TOKEN COOLIFY_API_TOKEN TELEGRAM_TOKEN TELEGRAM_CHAT; do
+  for name in GHCR_TOKEN COOLIFY_API_TOKEN TELEGRAM_TOKEN TELEGRAM_CHAT REDIS_URL; do
     printf '%s' "${!name}" | gh secret set "$name" -R "$repo"
     echo "    $name set"
   done

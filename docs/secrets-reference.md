@@ -13,7 +13,7 @@ The agent group `-1003669787601` is hardcoded in `scripts/telegram-notify.sh` â€
 notifications always go to both chats.
 
 > **Note:** `gibtang` is a user account, not an org, so there is no
-> org-level secret sharing. The 4 shared secrets above are set per-repo via
+> org-level secret sharing. The 5 shared secrets above are set per-repo via
 > `scripts/set-shared-secrets.sh`. The cost is one-time setup + maintenance
 > on rotation.
 
