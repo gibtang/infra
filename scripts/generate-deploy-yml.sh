@@ -158,6 +158,13 @@ $(printf '%b' "$build_cmd")
         run: |
           msg="⏹ <b>${image}</b> #\${{ github.run_number }} — build ABORTED"
           bash .infra/scripts/telegram-notify.sh "\$msg" || true
+
+      - name: Cleanup runner disk
+        if: always()
+        run: |
+          docker builder prune -af > /dev/null 2>&1 || true
+          docker image prune -af > /dev/null 2>&1 || true
+          echo "docker disk reclaimed"
 EOF
 
 echo "Wrote $out for $app_name (${image})" >&2
