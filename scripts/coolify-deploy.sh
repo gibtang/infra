@@ -118,6 +118,21 @@ for uuid in "$@"; do
   fi
   dep_uuid="$(json_field "$body" deployment_uuid || true)"
   if [ -z "$dep_uuid" ]; then
+    # Newer Coolify wraps the queue response: {"deployments":[{"deployment_uuid":...}]}
+    dep_uuid="$(printf '%s' "$body" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+deps = data.get("deployments")
+if isinstance(deps, list) and deps:
+    v = deps[0].get("deployment_uuid")
+    if v:
+        print(v)
+' 2>/dev/null || true)"
+  fi
+  if [ -z "$dep_uuid" ]; then
     echo "  WARN: no deployment_uuid in trigger response; skipping wait (legacy API?)" >&2
     continue
   fi
