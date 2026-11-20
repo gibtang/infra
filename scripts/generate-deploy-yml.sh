@@ -162,8 +162,12 @@ $(printf '%b' "$build_cmd")
       - name: Cleanup runner disk
         if: always()
         run: |
-          docker builder prune -af > /dev/null 2>&1 || true
-          docker image prune -af > /dev/null 2>&1 || true
+          # until=2h: several self-hosted runners share this machine's docker
+          # daemon; an unfiltered prune deleted another repo's in-flight build
+          # base image mid-build (infra#3, stork run 44048076142 at
+          # 2026-11-17 09:04 UTC, killed by ai-downdetector's cleanup).
+          docker builder prune -f --keep-storage 5 --filter "until=2h" > /dev/null 2>&1 || true
+          docker image prune -af --filter "until=2h" > /dev/null 2>&1 || true
           echo "docker disk reclaimed"
 EOF
 
